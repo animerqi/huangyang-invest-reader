@@ -102,6 +102,10 @@ transition:background var(--t),color var(--t)}
 border-radius:50%;background:var(--accent);vertical-align:2px}
 .tocgroup.hide,.tocitem.hide,.sidebar.hide{display:none}
 .layout.full{grid-template-columns:minmax(0,1fr)}
+/* 抽屉遮罩：只在窄屏生效，点空白处关闭目录 */
+.backdrop{display:none;position:fixed;inset:0;z-index:84;background:rgba(28,61,90,.34);
+opacity:0;pointer-events:none;transition:opacity var(--t)}
+html.drawer-open{overflow:hidden}
 /* 主体 */
 .main{min-width:0;padding:30px 28px 80px}
 .page{display:none;position:relative;background:var(--sheet);border:1px solid var(--line);
@@ -261,6 +265,8 @@ letter-spacing:.05em}
   background:var(--bg);border-right:1px solid var(--line);box-shadow:var(--glaze);
   transform:translateX(-102%);transition:transform var(--t);padding-top:22px}
   .sidebar.open{transform:none}
+  .backdrop{display:block}
+  .backdrop.on{opacity:1;pointer-events:auto}
   .page{max-width:860px}
 }
 @media(max-width:980px){
@@ -311,7 +317,7 @@ letter-spacing:.05em}
 <div class="progress" id="bar"></div>
 
 <header class="topbar"><div class="topin">
-  <button class="navbtn" id="tocBtn" title="目录" aria-label="打开目录">☰</button>
+  <button class="navbtn" id="tocBtn" title="目录" aria-label="打开目录" aria-controls="sidebar" aria-expanded="false">☰</button>
   <div class="brand"><b>黄阳投资课</b><small>166 期 · 84 万字润色稿</small></div>
   <div class="search"><input id="q" type="search" placeholder="全文检索（标题、摘要、正文、机器原稿）" aria-label="全文检索"><span class="k">/</span></div>
   <span class="hit" id="hit"></span>
@@ -11254,6 +11260,8 @@ letter-spacing:.05em}
   </main>
 </div>
 
+<div class="backdrop" id="backdrop" aria-hidden="true"></div>
+
 <script>
 const pages=[...document.querySelectorAll('.page')];
 const items=[...document.querySelectorAll('.tocitem')];
@@ -11327,9 +11335,23 @@ document.addEventListener('keydown',e=>{
   else if(e.key==='End'){e.preventDefault();show(N-1);}
 });
 
-function openSide(){if(window.innerWidth<=1180)sidebar.classList.add('open');}
-function closeSide(){if(window.innerWidth<=1180)sidebar.classList.remove('open');}
-document.getElementById('tocBtn').onclick=()=>sidebar.classList.toggle('open');
+// 抽屉：遮罩层 + 点空白关闭 + Esc 关闭 + 转桌面自动收起
+const backdrop=document.getElementById('backdrop');
+function setSide(open){
+  if(open && window.innerWidth>1180)open=false;
+  sidebar.classList.toggle('open',open);
+  backdrop.classList.toggle('on',open);
+  document.documentElement.classList.toggle('drawer-open',open);
+  document.getElementById('tocBtn').setAttribute('aria-expanded',open?'true':'false');
+}
+function openSide(){setSide(true);}
+function closeSide(){setSide(false);}
+document.getElementById('tocBtn').onclick=e=>{
+  e.stopPropagation();
+  setSide(!sidebar.classList.contains('open'));
+};
+backdrop.addEventListener('click',closeSide);
+window.addEventListener('resize',()=>{if(window.innerWidth>1180)setSide(false);});
 document.getElementById('sideBtn').onclick=e=>{
   const h=sidebar.classList.toggle('hide');
   layout.classList.toggle('full',h);
@@ -11341,7 +11363,7 @@ const sw=document.getElementById('settings'),swBtn=document.getElementById('setB
 swBtn.onclick=e=>{e.stopPropagation();sw.classList.toggle('on');};
 sw.onclick=e=>e.stopPropagation();
 document.addEventListener('click',()=>sw.classList.remove('on'));
-document.addEventListener('keydown',e=>{if(e.key==='Escape')sw.classList.remove('on');});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){sw.classList.remove('on');closeSide();}});
 
 const FS=[15.5,17,18.5,20,22,25];
 let fi=1;
